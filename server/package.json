@@ -1,0 +1,25 @@
+{
+  "name": "weather-outfit-server",
+  "version": "1.0.0",
+  "description": "Fetches weather from Open-Meteo and returns outfit recommendations for the Weather + Outfit Suggester app.",
+  "main": "src/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "test": "jest",
+    "lint": "eslint src test"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "supertest": "^7.0.0",
+    "eslint": "^9.9.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

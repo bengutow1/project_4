@@ -1,0 +1,33 @@
+name: Flutter Build
+
+on:
+  push:
+    branches: ['**']
+    paths-ignore:
+      - 'server/**'
+  pull_request:
+    branches: [main, master]
+    paths-ignore:
+      - 'server/**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Run tests
+        run: flutter test
+
+      - name: Build APK
+        run: flutter build apk --debug

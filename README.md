@@ -1,17 +1,41 @@
-# project_4
+# Weather + Outfit Suggester
 
-A new Flutter project.
+A Flutter app that fetches live weather from the free [Open-Meteo](https://open-meteo.com/)
+API (no API key needed) and layers on its own recommendation logic — e.g.
+"62°F and rain → jacket and umbrella." The app displays the forecast and the
+recommendation; the server is where the real value is added.
 
-## Getting Started
+## Project structure
 
-This project is a starting point for a Flutter application.
+```
+lib/       Flutter app source
+server/    Node.js + Express API (weather fetch + outfit logic)
+TASKS.md   Full task list (20 tasks / 4 tracks)
+```
 
-A few resources to get you started if this is your first Flutter project:
+## Running the app
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+```bash
+flutter pub get
+flutter run
+```
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Running the server
+
+```bash
+cd server
+npm install
+npm start        # http://localhost:3000
+```
+
+See [`server/README.md`](server/README.md) for the API contract.
+
+## Project management
+
+- Task list: [`TASKS.md`](TASKS.md)
+- GitHub Project board: see the repo's **Projects** tab
+- CI: Flutter and server builds run automatically via GitHub Actions on every push/PR (see `.github/workflows/`)
+
+## Demo video
+
+TODO: link the demo video here once recorded (Track D, task 19).
