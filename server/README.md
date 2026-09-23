@@ -25,9 +25,29 @@ Response:
 {
   "location": { "name": "Baton Rouge", "lat": 30.45, "lon": -91.18 },
   "weather": { "tempF": 62, "precipitationProbability": 80, "windMph": 12, "isDay": true },
-  "outfit": { "summary": "62°F and rainy → light jacket or hoodie, umbrella", "items": ["light jacket or hoodie", "umbrella"] }
+  "outfit": {
+    "summary": "62°F and rainy → light jacket or hoodie, umbrella",
+    "items": [
+      { "label": "light jacket or hoodie", "category": "outerwear", "warmth": "light", "waterproof": false },
+      { "label": "umbrella", "category": "accessory", "warmth": "none", "waterproof": true }
+    ]
+  }
 }
 ```
+
+#### Closet-matching contract
+
+Each `outfit.items[]` entry carries `category`, `warmth`, and `waterproof` on
+top of its display `label`. The app's closet feature matches these against a
+user's own tagged clothing items instead of showing generic text:
+
+- `category`: `'outerwear' | 'top' | 'bottom' | 'accessory'`
+- `warmth`: `'none' | 'light' | 'medium' | 'heavy'`
+- `waterproof`: `boolean`
+
+Tag your closet items with the same three fields and match on `category`
+first, then prefer the closest `warmth` and matching `waterproof` when
+`precipitationProbability` is high.
 
 ### `GET /health`
 

@@ -5,12 +5,17 @@ API (no API key needed) and layers on its own recommendation logic — e.g.
 "62°F and rain → jacket and umbrella." The app displays the forecast and the
 recommendation; the server is where the real value is added.
 
+Core feature: a personal **closet**. Users photograph or upload their own
+clothing (camera or gallery), tag each item (category, warmth, waterproof),
+and the app matches those real items to the day's weather instead of just
+showing generic text — with a visual "what to wear" screen.
+
 ## Project structure
 
 ```
 lib/       Flutter app source
 server/    Node.js + Express API (weather fetch + outfit logic)
-TASKS.md   Full task list (20 tasks / 4 tracks)
+TASKS.md   Full task list (20 user stories / 4 independent tracks)
 ```
 
 ## Running the app
@@ -38,4 +43,4 @@ See [`server/README.md`](server/README.md) for the API contract.
 
 ## Demo video
 
-TODO: link the demo video here once recorded (Track D, task 19).
+TODO: link the demo video here once recorded (Track D, story D5).
