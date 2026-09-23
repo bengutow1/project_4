@@ -25,6 +25,31 @@ flutter pub get
 flutter run
 ```
 
+### Location search (A1)
+
+The home screen starts empty with `e.g. Baton Rouge` as a hint. Nothing is
+fetched and no permission is requested on launch. **Get Weather** (or the
+keyboard search action) searches the entered city. **Use my location** requests
+foreground location access and fetches weather using coordinates. Denied or
+blocked permission, disabled services, and GPS failures leave manual city
+search available. Unknown cities show an error and can be corrected and retried.
+
+Start the server first. The API defaults to `http://localhost:3000`.
+For the Android emulator, use:
+
+```bash
+flutter run --dart-define=API_BASE_URL=http://10.0.2.2:3000
+```
+
+For a physical device, set `API_BASE_URL` to a reachable server address.
+Android debug builds allow local HTTP; use an HTTPS server for release builds
+and Apple devices. Browser GPS requires localhost or HTTPS.
+
+Run `flutter test` for automated A1 coverage (mocked GPS and HTTP): denied
+permission followed by city search, GPS coordinates without typing, unknown
+city recovery, empty input, no automatic launch request, and malformed responses.
+OS permission dialogs and actual GPS still need a device smoke test.
+
 ## Running the server
 
 ```bash
