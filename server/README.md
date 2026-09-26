@@ -24,7 +24,7 @@ Response:
 ```json
 {
   "location": { "name": "Baton Rouge", "lat": 30.45, "lon": -91.18 },
-  "weather": { "tempF": 62, "precipitationProbability": 80, "windMph": 12, "isDay": true },
+  "weather": { "tempF": 62, "condition": "Moderate rain", "highF": 68, "lowF": 54, "precipitationProbability": 80, "windMph": 12, "isDay": true },
   "outfit": {
     "summary": "62°F and rainy → light jacket or hoodie, umbrella",
     "items": [
@@ -34,6 +34,14 @@ Response:
   }
 }
 ```
+
+The forecast card displays temperature, condition, today's high/low, and wind.
+For A2, units are fixed at Fahrenheit and mph; a unit toggle is deferred.
+`condition` describes the current Open-Meteo WMO weather code (or
+`Condition unavailable` for an unknown code). `highF` and `lowF` are for the
+location's current calendar day and may be null when upstream data is missing.
+The app also supports older responses that omit these three new fields,
+showing unavailable labels instead of inventing values.
 
 #### Closet-matching contract
 

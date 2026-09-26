@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -41,7 +42,13 @@ void main() {
         return http.Response(
           jsonEncode({
             'location': {'name': request.url.queryParameters['city']},
-            'weather': {'tempF': 72, 'windMph': 8},
+            'weather': {
+              'tempF': 72,
+              'windMph': 8,
+              'condition': 'Partly cloudy',
+              'highF': 78,
+              'lowF': 61,
+            },
           }),
           200,
         );
@@ -117,5 +124,117 @@ void main() {
       service.fetch(city: 'Chicago'),
       throwsA(isA<WeatherFailure>()),
     );
+  });
+
+  testWidgets('forecast renders all A2 fields from response', (tester) async {
+    await tester.pumpWidget(
+      MyApp(weatherService: weather, locationService: location),
+    );
+    await tester.enterText(find.byType(TextField), 'Chicago');
+    await tester.tap(find.text('Get Weather'));
+    await tester.pumpAndSettle();
+    for (final label in [
+      '72°F',
+      'Partly cloudy',
+      'High: 78°F',
+      'Low: 61°F',
+      'Wind: 8 mph',
+    ]) {
+      expect(find.text(label), findsOneWidget);
+    }
+  });
+
+  testWidgets('loading clears stale forecast; failure retries original city', (
+    tester,
+  ) async {
+    final pending = <Completer<http.Response>>[];
+    final urls = <Uri>[];
+    final service = WeatherService(
+      client: MockClient((request) {
+        urls.add(request.url);
+        final response = Completer<http.Response>();
+        pending.add(response);
+        return response.future;
+      }),
+    );
+    http.Response success(int temp) => http.Response(
+      jsonEncode({
+        'location': {'name': 'Chicago'},
+        'weather': {
+          'tempF': temp,
+          'windMph': 10,
+          'condition': 'Clear sky',
+          'highF': 80,
+          'lowF': 60,
+        },
+      }),
+      200,
+    );
+    await tester.pumpWidget(
+      MyApp(weatherService: service, locationService: location),
+    );
+    await tester.enterText(find.byType(TextField), 'Chicago');
+    await tester.tap(find.text('Get Weather'));
+    await tester.pump();
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    pending[0].complete(success(72));
+    await tester.pumpAndSettle();
+    expect(find.text('72°F'), findsOneWidget);
+    await tester.tap(find.text('Get Weather'));
+    await tester.pump();
+    expect(find.text('72°F'), findsNothing);
+    expect(find.text('Clear sky'), findsNothing);
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    pending[1].complete(http.Response('{"error":"Unavailable"}', 502));
+    await tester.pumpAndSettle();
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+    expect(find.text('Retry'), findsOneWidget);
+    await tester.enterText(find.byType(TextField), 'Boston');
+    await tester.tap(find.text('Retry'));
+    await tester.pump();
+    expect(urls.last.queryParameters, {'city': 'Chicago'});
+    expect(find.text('Retry'), findsNothing);
+    pending[2].complete(success(75));
+    await tester.pumpAndSettle();
+    expect(find.text('75°F'), findsOneWidget);
+    expect(find.textContaining('unavailable right now'), findsNothing);
+  });
+
+  testWidgets('Retry repeats a failed GPS request', (tester) async {
+    location.denied = true;
+    await tester.pumpWidget(
+      MyApp(weatherService: weather, locationService: location),
+    );
+    await tester.tap(find.text('Use my location'));
+    await tester.pumpAndSettle();
+    location.denied = false;
+    await tester.tap(find.text('Retry'));
+    await tester.pumpAndSettle();
+    expect(location.calls, 2);
+    expect(requests.single.queryParameters, {'lat': '30.45', 'lon': '-91.18'});
+    expect(find.text('72°F'), findsOneWidget);
+  });
+
+  testWidgets('older response shows unavailable optional fields', (
+    tester,
+  ) async {
+    final service = WeatherService(
+      client: MockClient(
+        (_) async => http.Response(
+          '{"location":{},"weather":{"tempF":32,"windMph":0}}',
+          200,
+        ),
+      ),
+    );
+    await tester.pumpWidget(
+      MyApp(weatherService: service, locationService: location),
+    );
+    await tester.enterText(find.byType(TextField), 'Chicago');
+    await tester.tap(find.text('Get Weather'));
+    await tester.pumpAndSettle();
+    expect(find.text('Condition unavailable'), findsOneWidget);
+    expect(find.text('High: Unavailable'), findsOneWidget);
+    expect(find.text('Low: Unavailable'), findsOneWidget);
+    expect(find.text('Wind: 0 mph'), findsOneWidget);
   });
 }
