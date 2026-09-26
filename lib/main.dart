@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'weather_service.dart';
+import 'forecast_card.dart';
 
 void main() => runApp(const MyApp());
 
@@ -32,17 +33,24 @@ class _WeatherHomeState extends State<WeatherHome> {
   bool _loading = false;
   String? _error;
   Forecast? _forecast;
+  bool _lastUseGps = false;
+  String? _lastCity;
   @override
   void dispose() {
     _city.dispose();
     super.dispose();
   }
 
-  Future<void> _fetch({bool useGps = false}) async {
+  Future<void> _fetch({bool useGps = false, String? retryCity}) async {
     if (_loading) return;
-    final city = _city.text.trim();
+    final city = retryCity ?? _city.text.trim();
     if (!useGps && city.isEmpty) {
-      setState(() => _error = 'Enter a city name to get weather.');
+      setState(() {
+        _error = 'Enter a city name to get weather.';
+        _forecast = null;
+        _lastCity = null;
+        _lastUseGps = false;
+      });
       return;
     }
     FocusScope.of(context).unfocus();
@@ -50,6 +58,8 @@ class _WeatherHomeState extends State<WeatherHome> {
       _loading = true;
       _error = null;
       _forecast = null;
+      _lastCity = city;
+      _lastUseGps = useGps;
     });
     try {
       final coordinates = useGps ? await widget.location.current() : null;
@@ -128,26 +138,15 @@ class _WeatherHomeState extends State<WeatherHome> {
                     ),
                   ),
                 ),
-              if (_forecast case final forecast?)
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          forecast.name,
-                          style: Theme.of(context).textTheme.titleLarge,
-                        ),
-                        Text(
-                          '${forecast.tempF.round()}°F',
-                          style: Theme.of(context).textTheme.displaySmall,
-                        ),
-                        Text('Wind: ${forecast.windMph.round()} mph'),
-                      ],
-                    ),
-                  ),
+              if (_error != null && (_lastCity != null || _lastUseGps))
+                TextButton.icon(
+                  onPressed: () =>
+                      _fetch(useGps: _lastUseGps, retryCity: _lastCity),
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Retry'),
                 ),
+              if (!_loading && _error == null && _forecast != null)
+                ForecastCard(forecast: _forecast!),
             ],
           ),
         ),

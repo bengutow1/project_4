@@ -17,10 +17,16 @@ class Forecast {
     required this.name,
     required this.tempF,
     required this.windMph,
+    this.condition = 'Condition unavailable',
+    this.highF,
+    this.lowF,
   });
   final String name;
   final double tempF;
   final double windMph;
+  final String condition;
+  final double? highF;
+  final double? lowF;
 }
 
 class WeatherService {
@@ -66,6 +72,9 @@ class WeatherService {
         name: location['name'] as String? ?? 'Current location',
         tempF: (weather['tempF'] as num).toDouble(),
         windMph: (weather['windMph'] as num).toDouble(),
+        condition: weather['condition'] as String? ?? 'Condition unavailable',
+        highF: (weather['highF'] as num?)?.toDouble(),
+        lowF: (weather['lowF'] as num?)?.toDouble(),
       );
     } on WeatherFailure {
       rethrow;
