@@ -43,6 +43,27 @@ location's current calendar day and may be null when upstream data is missing.
 The app also supports older responses that omit these three new fields,
 showing unavailable labels instead of inventing values.
 
+#### Errors
+
+Every error response has the shape `{ "error": "<human-readable message>" }`.
+
+| Status | When | Example message |
+| ------ | ---- | --------------- |
+| 400 | Neither `city` nor `lat`/`lon` given | `Provide either "city" or "lat" and "lon" query params.` |
+| 400 | Only one of `lat`/`lon` given | `Provide both "lat" and "lon", or use "city" instead.` |
+| 400 | `lat` not a number in -90..90, or `lon` not in -180..180 | `"lat" must be a number between -90 and 90.` |
+| 400 | `city` empty, repeated, or over 100 characters | `"city" must be a non-empty string.` |
+| 404 | Open-Meteo can't find the city | `No location found for "Notarealplace"` |
+| 502 | Open-Meteo is unreachable, returns an error, or returns bad data | `Weather service is unreachable. Please try again later.` |
+| 504 | Open-Meteo takes longer than the timeout (default 8 s) | `Weather service timed out. Please try again.` |
+| 500 | Unexpected server bug (logged to the console) | `Something went wrong on the server. Please try again.` |
+
+If both `lat`/`lon` and `city` are given, the coordinates are used.
+The upstream timeout can be changed with the `UPSTREAM_TIMEOUT_MS` environment variable.
+
+The app shows "City not found" when the error starts with `No location found`,
+so keep that prefix if you change the message.
+
 #### Closet-matching contract
 
 Each `outfit.items[]` entry carries `category`, `warmth`, and `waterproof` on
