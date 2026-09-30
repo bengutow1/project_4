@@ -62,6 +62,10 @@ class WeatherService {
             'City not found. Check the spelling and try another city.',
           );
         }
+        if (response.statusCode == 422 && error is String) {
+          // Ambiguous city: the server explains which state or country to add.
+          throw WeatherFailure(error);
+        }
         throw const WeatherFailure(
           'Weather is unavailable right now. Please try again.',
         );

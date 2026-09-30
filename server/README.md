@@ -53,12 +53,24 @@ Every error response has the shape `{ "error": "<human-readable message>" }`.
 | 400 | Only one of `lat`/`lon` given | `Provide both "lat" and "lon", or use "city" instead.` |
 | 400 | `lat` not a number in -90..90, or `lon` not in -180..180 | `"lat" must be a number between -90 and 90.` |
 | 400 | `city` empty, repeated, or over 100 characters | `"city" must be a non-empty string.` |
-| 404 | Open-Meteo can't find the city | `No location found for "Notarealplace"` |
+| 404 | Open-Meteo can't find the city (may suggest close matches) | `No location found for "Londo". Did you mean London, England, United Kingdom?` |
+| 422 | The city name matches several similar-sized places; the body also has a `candidates` array of `{ name, region, country, lat, lon }` | `"Springfield" matches several places: ... Add a state or country, e.g. "Springfield, Missouri".` |
 | 502 | Open-Meteo is unreachable, returns an error, or returns bad data | `Weather service is unreachable. Please try again later.` |
 | 504 | Open-Meteo takes longer than the timeout (default 8 s) | `Weather service timed out. Please try again.` |
 | 500 | Unexpected server bug (logged to the console) | `Something went wrong on the server. Please try again.` |
 
 If both `lat`/`lon` and `city` are given, the coordinates are used.
+
+#### City names
+
+`city` can be `Paris`, `Paris, TX`, `Paris, Texas` or `Paris, Texas, USA`. The part before
+the first comma is looked up; each part after it must match the place's state/region,
+country name, or country code (US state abbreviations work). Only exact name matches are
+accepted, ignoring case, accents and periods (`sao paulo`, `St Louis`). When several
+places share the name, the largest one is used if it has at least 5x the population of
+the next one (`Paris` → Paris, France); otherwise the request fails with 422 so the user
+can add a state or country. Successful city lookups include `location.region` and
+`location.country`; for `lat`/`lon` requests those are `null`.
 The upstream timeout can be changed with the `UPSTREAM_TIMEOUT_MS` environment variable.
 
 The app shows "City not found" when the error starts with `No location found`,

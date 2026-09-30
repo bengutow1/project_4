@@ -32,7 +32,7 @@ router.get('/forecast', async (req, res) => {
     const lonNum = parseCoordinate(lon, -180, 180);
     if (latNum === null) return badRequest(res, '"lat" must be a number between -90 and 90.');
     if (lonNum === null) return badRequest(res, '"lon" must be a number between -180 and 180.');
-    location = { lat: latNum, lon: lonNum, name: null };
+    location = { lat: latNum, lon: lonNum, name: null, region: null, country: null };
   } else if (city !== undefined) {
     if (typeof city !== 'string' || city.trim() === '') {
       return badRequest(res, '"city" must be a non-empty string.');
@@ -50,13 +50,21 @@ router.get('/forecast', async (req, res) => {
     const outfit = suggestOutfit(weather);
 
     return res.json({
-      location: { name: location.name, lat: location.lat, lon: location.lon },
+      location: {
+        name: location.name,
+        region: location.region,
+        country: location.country,
+        lat: location.lat,
+        lon: location.lon,
+      },
       weather,
       outfit,
     });
   } catch (err) {
     if (err.status) {
-      return res.status(err.status).json({ error: err.message });
+      const body = { error: err.message };
+      if (err.candidates) body.candidates = err.candidates;
+      return res.status(err.status).json(body);
     }
     console.error('Unexpected error in /api/forecast:', err);
     return res.status(500).json({ error: 'Something went wrong on the server. Please try again.' });

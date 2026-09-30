@@ -126,6 +126,27 @@ void main() {
     );
   });
 
+  test('ambiguous city shows the server message', () async {
+    const message =
+        '"Springfield" matches several places: Springfield, Missouri, United States; '
+        'Springfield, Illinois, United States. '
+        'Add a state or country, e.g. "Springfield, Missouri".';
+    final service = WeatherService(
+      client: MockClient(
+        (_) async => http.Response(
+          jsonEncode({'error': message, 'candidates': []}),
+          422,
+        ),
+      ),
+    );
+    await expectLater(
+      service.fetch(city: 'Springfield'),
+      throwsA(
+        isA<WeatherFailure>().having((f) => f.message, 'message', message),
+      ),
+    );
+  });
+
   testWidgets('forecast renders all A2 fields from response', (tester) async {
     await tester.pumpWidget(
       MyApp(weatherService: weather, locationService: location),
