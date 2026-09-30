@@ -6,6 +6,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:project_4/main.dart';
+import 'package:project_4/forecast_card.dart';
+import 'package:project_4/outfit_summary_card.dart';
 import 'package:project_4/weather_service.dart';
 
 class FakeLocation extends LocationService {
@@ -24,6 +26,77 @@ class FakeLocation extends LocationService {
 }
 
 void main() {
+  testWidgets('A3 summary follows the forecast and changes with location', (
+    tester,
+  ) async {
+    final pending = <Completer<http.Response>>[];
+    final cities = <String?>[];
+    final service = WeatherService(
+      client: MockClient((request) {
+        cities.add(request.url.queryParameters['city']);
+        final response = Completer<http.Response>();
+        pending.add(response);
+        return response.future;
+      }),
+    );
+    http.Response forecast(String city, String summary) => http.Response(
+      jsonEncode({
+        'location': {'name': city},
+        'weather': {'tempF': 62, 'windMph': 8},
+        'outfit': {'summary': summary, 'items': []},
+      }),
+      200,
+      headers: {'content-type': 'application/json; charset=utf-8'},
+    );
+    const first = '62°F and rainy → jacket, umbrella';
+    const second = '80°F → t-shirt, shorts';
+    await tester.pumpWidget(
+      MyApp(weatherService: service, locationService: FakeLocation()),
+    );
+    expect(find.byType(OutfitSummaryCard), findsNothing);
+    await tester.enterText(find.byType(TextField), 'Chicago');
+    await tester.tap(find.text('Get Weather'));
+    await tester.pump();
+    pending[0].complete(forecast('Chicago', first));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text(first),
+      150,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text(first), findsOneWidget);
+    expect(find.text('Weather-based suggestion'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.byType(OutfitSummaryCard)).dy,
+      greaterThan(tester.getBottomLeft(find.byType(ForecastCard)).dy),
+    );
+    await tester.ensureVisible(find.byType(TextField));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'Miami');
+    await tester.tap(find.text('Get Weather'));
+    await tester.pump();
+    expect(find.byType(OutfitSummaryCard), findsNothing);
+    pending[1].complete(forecast('Miami', second));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text(second),
+      150,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(cities, ['Chicago', 'Miami']);
+    expect(find.text(second), findsOneWidget);
+    expect(find.text(first), findsNothing);
+    await tester.ensureVisible(find.byType(TextField));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'InvalidCity');
+    await tester.tap(find.text('Get Weather'));
+    await tester.pump();
+    pending[2].complete(http.Response('{"error":"Unavailable"}', 502));
+    await tester.pumpAndSettle();
+    expect(find.byType(OutfitSummaryCard), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   late FakeLocation location;
   late List<Uri> requests;
   late WeatherService weather;
@@ -236,5 +309,11 @@ void main() {
     expect(find.text('High: Unavailable'), findsOneWidget);
     expect(find.text('Low: Unavailable'), findsOneWidget);
     expect(find.text('Wind: 0 mph'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.byType(OutfitSummaryCard),
+      150,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('Outfit suggestion unavailable.'), findsOneWidget);
   });
 }
