@@ -1,5 +1,44 @@
 const GEOCODE_URL = 'https://geocoding-api.open-meteo.com/v1/search';
 const FORECAST_URL = 'https://api.open-meteo.com/v1/forecast';
+const REQUEST_TIMEOUT_MS = Number(process.env.UPSTREAM_TIMEOUT_MS) || 8000;
+
+// Errors the route turns into HTTP responses. `status` is the HTTP code to send.
+class LocationNotFoundError extends Error {
+  constructor(city) {
+    super(`No location found for "${city}"`);
+    this.name = 'LocationNotFoundError';
+    this.status = 404;
+  }
+}
+
+class UpstreamError extends Error {
+  constructor(message, status = 502) {
+    super(message);
+    this.name = 'UpstreamError';
+    this.status = status;
+  }
+}
+
+// fetch + JSON with a timeout; every failure becomes an UpstreamError.
+async function getJson(url, what) {
+  let res;
+  try {
+    res = await fetch(url, { signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
+  } catch (err) {
+    if (err.name === 'TimeoutError' || err.name === 'AbortError') {
+      throw new UpstreamError(`${what} service timed out. Please try again.`, 504);
+    }
+    throw new UpstreamError(`${what} service is unreachable. Please try again later.`);
+  }
+  if (!res.ok) {
+    throw new UpstreamError(`${what} service returned an error (${res.status}). Please try again later.`);
+  }
+  try {
+    return await res.json();
+  } catch {
+    throw new UpstreamError(`${what} service returned an invalid response.`);
+  }
+}
 
 // WMO weather codes from https://open-meteo.com/en/docs.
 function conditionForCode(code) {
@@ -20,11 +59,9 @@ function conditionForCode(code) {
 
 async function geocodeCity(city) {
   const url = `${GEOCODE_URL}?name=${encodeURIComponent(city)}&count=1&language=en&format=json`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`Geocoding request failed: ${res.status}`);
-  const data = await res.json();
+  const data = await getJson(url, 'Geocoding');
   const result = data.results && data.results[0];
-  if (!result) throw new Error(`No location found for "${city}"`);
+  if (!result) throw new LocationNotFoundError(city);
   return { lat: result.latitude, lon: result.longitude, name: result.name, country: result.country };
 }
 
@@ -39,10 +76,11 @@ async function fetchWeather({ lat, lon }) {
     wind_speed_unit: 'mph',
     timezone: 'auto',
   });
-  const res = await fetch(`${FORECAST_URL}?${params.toString()}`);
-  if (!res.ok) throw new Error(`Forecast request failed: ${res.status}`);
-  const data = await res.json();
+  const data = await getJson(`${FORECAST_URL}?${params.toString()}`, 'Weather');
   const current = data.current;
+  if (!current || typeof current.temperature_2m !== 'number') {
+    throw new UpstreamError('Weather service returned incomplete data.');
+  }
   return {
     tempF: current.temperature_2m,
     condition: conditionForCode(current.weather_code),
@@ -55,4 +93,4 @@ async function fetchWeather({ lat, lon }) {
   };
 }
 
-module.exports = { geocodeCity, fetchWeather };
+module.exports = { geocodeCity, fetchWeather, LocationNotFoundError, UpstreamError };
