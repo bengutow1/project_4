@@ -73,6 +73,28 @@ describe('GET /api/forecast — input validation (400)', () => {
   });
 });
 
+describe('GET /api/forecast — city resolution (C2)', () => {
+  test('response includes region and country for a city', async () => {
+    mockFetch(jsonResponse(geocodeBody), jsonResponse(forecastBody));
+    const res = await request(app).get('/api/forecast').query({ city: 'Baton Rouge' });
+    expect(res.body.location).toMatchObject({ name: 'Baton Rouge', country: 'United States' });
+  });
+
+  test('ambiguous city returns 422 with candidates and never fetches weather', async () => {
+    const springfields = ['Missouri', 'Massachusetts', 'Illinois'].map((admin1, i) => ({
+      name: 'Springfield', admin1, country: 'United States', country_code: 'US',
+      latitude: 37 + i * 3, longitude: -93 + i * 10, population: 160000 - i * 20000, feature_code: 'PPLA2',
+    }));
+    const spy = mockFetch(jsonResponse({ results: springfields }));
+    const res = await request(app).get('/api/forecast').query({ city: 'Springfield' });
+    expect(res.status).toBe(422);
+    expect(res.body.error).toMatch(/matches several places/);
+    expect(res.body.candidates).toHaveLength(3);
+    expect(res.body.candidates[1]).toMatchObject({ region: 'Massachusetts' });
+    expect(spy).toHaveBeenCalledTimes(1); // no wrong-city weather lookup
+  });
+});
+
 describe('GET /api/forecast — upstream failures', () => {
   test('unknown city returns 404 with a clear message', async () => {
     mockFetch(jsonResponse({}));
