@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'weather_service.dart';
 import 'forecast_card.dart';
+import 'outfit_summary_card.dart';
 
 void main() => runApp(const MyApp());
 
@@ -145,8 +146,11 @@ class _WeatherHomeState extends State<WeatherHome> {
                   icon: const Icon(Icons.refresh),
                   label: const Text('Retry'),
                 ),
-              if (!_loading && _error == null && _forecast != null)
+              if (!_loading && _error == null && _forecast != null) ...[
                 ForecastCard(forecast: _forecast!),
+                const SizedBox(height: 12),
+                OutfitSummaryCard(summary: _forecast!.outfitSummary),
+              ],
             ],
           ),
         ),

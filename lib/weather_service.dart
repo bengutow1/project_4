@@ -20,6 +20,7 @@ class Forecast {
     this.condition = 'Condition unavailable',
     this.highF,
     this.lowF,
+    this.outfitSummary,
   });
   final String name;
   final double tempF;
@@ -27,6 +28,7 @@ class Forecast {
   final String condition;
   final double? highF;
   final double? lowF;
+  final String? outfitSummary;
 }
 
 class WeatherService {
@@ -79,6 +81,8 @@ class WeatherService {
         condition: weather['condition'] as String? ?? 'Condition unavailable',
         highF: (weather['highF'] as num?)?.toDouble(),
         lowF: (weather['lowF'] as num?)?.toDouble(),
+        outfitSummary:
+            (body['outfit'] as Map<String, dynamic>?)?['summary'] as String?,
       );
     } on WeatherFailure {
       rethrow;
