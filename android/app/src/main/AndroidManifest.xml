@@ -3,7 +3,7 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <application
-        android:label="project_4"
+        android:label="Weather + Outfit"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
