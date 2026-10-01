@@ -23,12 +23,14 @@ Query params (provide one of the two):
 Response:
 ```json
 {
-  "location": { "name": "Baton Rouge", "lat": 30.45, "lon": -91.18 },
-  "weather": { "tempF": 62, "condition": "Moderate rain", "highF": 68, "lowF": 54, "precipitationProbability": 80, "windMph": 12, "isDay": true },
+  "location": { "name": "Baton Rouge", "region": "Louisiana", "country": "United States", "lat": 30.45075, "lon": -91.15455 },
+  "weather": { "tempF": 52, "condition": "Moderate rain", "highF": 58, "lowF": 47, "precipitationProbability": 80, "windMph": 12, "isDay": true, "uvIndex": 1 },
   "outfit": {
-    "summary": "62°F and rainy → light jacket or hoodie, umbrella",
+    "summary": "52°F and rainy → rain jacket, long-sleeve shirt, long pants, umbrella",
     "items": [
-      { "label": "light jacket or hoodie", "category": "outerwear", "warmth": "light", "waterproof": false },
+      { "label": "rain jacket", "category": "outerwear", "warmth": "light", "waterproof": true },
+      { "label": "long-sleeve shirt", "category": "top", "warmth": "light", "waterproof": false },
+      { "label": "long pants", "category": "bottom", "warmth": "light", "waterproof": false },
       { "label": "umbrella", "category": "accessory", "warmth": "none", "waterproof": true }
     ]
   }
@@ -89,6 +91,39 @@ user's own tagged clothing items instead of showing generic text:
 Tag your closet items with the same three fields and match on `category`
 first, then prefer the closest `warmth` and matching `waterproof` when
 `precipitationProbability` is high.
+
+Guarantees every outfit meets (enforced by tests in `test/outfit.test.js`):
+
+- At least one `top` and exactly one `bottom`.
+- At most one `outerwear` item: always one below 60°F, never one at 75°F or above.
+- When rain is likely (`precipitationProbability` ≥ 50), at least one waterproof `accessory`.
+- Items are ordered outerwear, tops, bottom, accessories; labels don't repeat.
+
+#### Outfit rules
+
+Base layers by temperature (°F):
+
+| Temperature | Outerwear | Top(s) | Bottom | Accessories |
+| ----------- | --------- | ------ | ------ | ----------- |
+| below 32 | heavy winter coat (heavy) | sweater or thermal top (heavy) | lined or insulated pants (heavy) | gloves, beanie (heavy) |
+| 32–44 | warm jacket (medium) | sweater (medium) | long pants (medium) | — |
+| 45–59 | light jacket or hoodie (light) | long-sleeve shirt (light) | long pants (light) | — |
+| 60–74 | — | t-shirt (none), light layers (light) | jeans or light pants (light) | — |
+| 75 and up | — | t-shirt (none) | shorts (none) | — |
+
+Then, in order:
+
+1. **Rain likely (≥ 50%)**: the jacket is swapped for a waterproof one of the same
+   warmth (waterproof winter coat / waterproof warm jacket / rain jacket), and an
+   `umbrella` is added. The summary says "rainy", or "snowy" below 32°F.
+2. **Rain possible (20–49%)**: `umbrella (just in case)` is added.
+3. **Wind ≥ 20 mph from 60–74°F**: a `windbreaker` (light) is added. Colder outfits
+   already have a jacket, and it's too warm for one at 75°F and up.
+4. **Sun, daytime only**: `sunglasses` when `uvIndex` ≥ 3, plus a `sun hat` when
+   `uvIndex` ≥ 8. If the UV index is unavailable, sunglasses are suggested at 70°F
+   and up with under a 20% chance of rain.
+
+All thresholds are constants at the top of `src/lib/outfit.js`.
 
 ### `GET /health`
 

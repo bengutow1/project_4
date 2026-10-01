@@ -25,6 +25,21 @@ describe('forecast display fields', () => {
     expect(params.get('timezone')).toBe('auto');
   });
 
+  test('requests and returns the UV index for the outfit rules', async () => {
+    const fetchMock = jest.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true, json: async () => ({ current: { temperature_2m: 80, wind_speed_10m: 3, uv_index: 7.4 } }),
+    });
+    expect(await fetchWeather({ lat: 30, lon: -91 })).toMatchObject({ uvIndex: 7.4 });
+    expect(new URL(fetchMock.mock.calls[0][0]).searchParams.get('current')).toContain('uv_index');
+  });
+
+  test('missing UV index is null, so the outfit rules use their fallback', async () => {
+    jest.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true, json: async () => ({ current: { temperature_2m: 80, wind_speed_10m: 3 } }),
+    });
+    expect(await fetchWeather({ lat: 30, lon: -91 })).toMatchObject({ uvIndex: null });
+  });
+
   test('missing daily data stays unavailable', async () => {
     jest.spyOn(global, 'fetch').mockResolvedValue({
       ok: true, json: async () => ({ current: { temperature_2m: 32, wind_speed_10m: 0 } }),

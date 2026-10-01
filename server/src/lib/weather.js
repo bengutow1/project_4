@@ -166,7 +166,7 @@ async function fetchWeather({ lat, lon }) {
   const params = new URLSearchParams({
     latitude: lat,
     longitude: lon,
-    current: 'temperature_2m,precipitation_probability,wind_speed_10m,is_day,weather_code',
+    current: 'temperature_2m,precipitation_probability,wind_speed_10m,is_day,weather_code,uv_index',
     daily: 'temperature_2m_max,temperature_2m_min',
     forecast_days: 1,
     temperature_unit: 'fahrenheit',
@@ -186,6 +186,7 @@ async function fetchWeather({ lat, lon }) {
     precipitationProbability: current.precipitation_probability ?? 0,
     windMph: current.wind_speed_10m,
     isDay: current.is_day === 1,
+    uvIndex: typeof current.uv_index === 'number' ? current.uv_index : null,
     time: current.time,
   };
 }
