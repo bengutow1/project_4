@@ -29,6 +29,28 @@ class Forecast {
   final double? highF;
   final double? lowF;
   final String? outfitSummary;
+
+  factory Forecast.fromJson(Map<String, dynamic> json) {
+    final weather = json['weather'] as Map<String, dynamic>;
+    final location = json['location'] as Map<String, dynamic>;
+    final forecast = Forecast(
+      name: location['name'] as String? ?? 'Current location',
+      tempF: (weather['tempF'] as num).toDouble(),
+      windMph: (weather['windMph'] as num).toDouble(),
+      condition: weather['condition'] as String? ?? 'Condition unavailable',
+      highF: (weather['highF'] as num?)?.toDouble(),
+      lowF: (weather['lowF'] as num?)?.toDouble(),
+      outfitSummary:
+          (json['outfit'] as Map<String, dynamic>?)?['summary'] as String?,
+    );
+    if (!forecast.tempF.isFinite ||
+        !forecast.windMph.isFinite ||
+        (forecast.highF != null && !forecast.highF!.isFinite) ||
+        (forecast.lowF != null && !forecast.lowF!.isFinite)) {
+      throw const FormatException('Non-finite weather value');
+    }
+    return forecast;
+  }
 }
 
 class WeatherService {
@@ -44,21 +66,41 @@ class WeatherService {
   Future<Forecast> fetch({String? city, Coordinates? coordinates}) async {
     final client = this.client ?? http.Client();
     try {
-      final uri = Uri.parse('$_baseUrl/api/forecast').replace(
+      final base = Uri.tryParse(_baseUrl.trim());
+      if (base == null ||
+          !base.hasAuthority ||
+          base.host.isEmpty ||
+          !['http', 'https'].contains(base.scheme) ||
+          base.hasQuery ||
+          base.hasFragment ||
+          base.userInfo.isNotEmpty) {
+        throw const WeatherFailure(
+          'The weather server URL is invalid. Check API_BASE_URL.',
+        );
+      }
+      if (coordinates == null && (city == null || city.trim().isEmpty)) {
+        throw const WeatherFailure('Enter a city name to get weather.');
+      }
+      final uri = base.replace(
+        path: '${base.path.replaceFirst(RegExp(r'/+$'), '')}/api/forecast',
         queryParameters: {
           if (coordinates != null) ...{
             'lat': '${coordinates.latitude}',
             'lon': '${coordinates.longitude}',
           } else
-            'city': city!,
+            'city': city!.trim(),
         },
       );
       final response = await client
-          .get(uri)
+          .get(uri, headers: {'Accept': 'application/json'})
           .timeout(const Duration(seconds: 20));
-      final body = jsonDecode(response.body) as Map<String, dynamic>;
       if (response.statusCode != 200) {
-        final error = body['error'];
+        // Proxies may return HTML or an empty body on failure.
+        Object? error;
+        try {
+          final body = jsonDecode(utf8.decode(response.bodyBytes));
+          if (body is Map<String, dynamic>) error = body['error'];
+        } catch (_) {}
         if (error is String && error.startsWith('No location found')) {
           throw const WeatherFailure(
             'City not found. Check the spelling and try another city.',
@@ -68,22 +110,24 @@ class WeatherService {
           // Ambiguous city: the server explains which state or country to add.
           throw WeatherFailure(error);
         }
+        if (response.statusCode == 504) {
+          throw const WeatherFailure(
+            'Weather request timed out. Please try again.',
+          );
+        }
         throw const WeatherFailure(
           'Weather is unavailable right now. Please try again.',
         );
       }
-      final weather = body['weather'] as Map<String, dynamic>;
-      final location = body['location'] as Map<String, dynamic>;
-      return Forecast(
-        name: location['name'] as String? ?? 'Current location',
-        tempF: (weather['tempF'] as num).toDouble(),
-        windMph: (weather['windMph'] as num).toDouble(),
-        condition: weather['condition'] as String? ?? 'Condition unavailable',
-        highF: (weather['highF'] as num?)?.toDouble(),
-        lowF: (weather['lowF'] as num?)?.toDouble(),
-        outfitSummary:
-            (body['outfit'] as Map<String, dynamic>?)?['summary'] as String?,
-      );
+      try {
+        return Forecast.fromJson(
+          jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>,
+        );
+      } catch (_) {
+        throw const WeatherFailure(
+          'The weather server returned an invalid response. Please try again.',
+        );
+      }
     } on WeatherFailure {
       rethrow;
     } on TimeoutException {

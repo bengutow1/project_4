@@ -45,6 +45,41 @@ For a physical device, set `API_BASE_URL` to a reachable server address.
 Android debug builds allow local HTTP; use an HTTPS server for release builds
 and Apple devices. Browser GPS requires localhost or HTTPS.
 
+### Live API configuration (A5)
+
+The base URL is a compile-time Dart constant in `WeatherService`, configured
+with `--dart-define=API_BASE_URL=...`; no `.env` loader or build flavors are needed.
+It defaults to `http://localhost:3000` for local web/desktop development.
+Use your computer's LAN address for a physical Android device during development.
+Supply the server origin (optionally including a hosting path prefix), without
+`/api/forecast`, query parameters, or fragments. Trailing slashes are supported.
+
+```bash
+# Deployed server (replace with your actual HTTPS host)
+flutter run --dart-define=API_BASE_URL=https://your-server.example.com
+flutter build apk --release --dart-define=API_BASE_URL=https://your-server.example.com
+flutter build web --dart-define=API_BASE_URL=https://your-server.example.com
+```
+
+Changing environments requires restarting/rebuilding with the new define, with
+no source changes. This URL is public configuration, not a place for secrets.
+An HTTPS web app also needs an HTTPS API and the server must allow its browser
+origin through CORS.
+
+The production UI calls `GET /api/forecast` using city or GPS coordinates and
+decodes the server's location, weather, and outfit summary into `Forecast`.
+There is no mock fallback. A2 and A3 share one request: loading clears both old
+cards, success displays both from the same response, and `WeatherFailure`
+displays an error with **Retry** for the original city/GPS action. Connection
+errors, timeouts, HTTP failures, invalid JSON/models, and invalid configuration
+produce handled messages. Missing optional fields retain the unavailable labels.
+
+Run `flutter test` for URL switching, response decoding, failure handling, and
+UI loading/error/retry coverage. For a live smoke test, start the server, run
+the app with the appropriate define, search a recognized city, and verify both
+cards populate. Stop the server and fetch again to check error/retry; restart
+the server and retry. Repeat with your deployed HTTPS URL.
+
 Run `flutter test` for automated A1 coverage (mocked GPS and HTTP): denied
 permission followed by city search, GPS coordinates without typing, unknown
 city recovery, empty input, no automatic launch request, and malformed responses.
