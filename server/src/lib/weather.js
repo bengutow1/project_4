@@ -184,10 +184,10 @@ async function fetchWeather({ lat, lon }) {
     highF: data.daily?.temperature_2m_max?.[0] ?? null,
     lowF: data.daily?.temperature_2m_min?.[0] ?? null,
     precipitationProbability: current.precipitation_probability ?? 0,
-    windMph: current.wind_speed_10m,
+    windMph: current.wind_speed_10m ?? 0,
     isDay: current.is_day === 1,
     uvIndex: typeof current.uv_index === 'number' ? current.uv_index : null,
-    time: current.time,
+    time: current.time ?? null,
   };
 }
 
