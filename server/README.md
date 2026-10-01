@@ -205,6 +205,55 @@ All thresholds are constants at the top of `src/lib/outfit.js`.
 
 Returns `{ "status": "ok" }` with status 200.
 
+## Deploying (Render)
+
+The server is deployed on [Render](https://render.com)'s free tier using the
+Blueprint in [`render.yaml`](../render.yaml) at the repo root.
+
+**Live URL:** `https://<your-service>.onrender.com` (replace once deployed)
+
+### First-time setup
+
+1. Sign in to Render with GitHub.
+2. Click **New → Blueprint**, pick the `project_4` repo, and click **Apply**.
+   If the repo isn't listed, the repo owner has to install Render's GitHub app
+   on their account with access to `project_4`.
+3. Wait for the first deploy to say **Live**, then copy the service URL.
+
+Render then redeploys automatically whenever `server/` changes on `master`.
+All settings (Node version, build and start commands, health check, environment
+variables) live in `render.yaml`, so change them there rather than in the dashboard;
+`test/deploy.test.js` checks the file still matches the server.
+
+### Checking a deploy
+
+```bash
+npm run smoke -- https://<your-service>.onrender.com
+```
+
+This calls the live server from your machine and checks `/health`, a city
+forecast, a coordinates forecast, and a 400 error. It prints `All checks passed.`
+when the deploy is working.
+
+### Free tier limits
+
+- **Sleeps when idle.** After 15 minutes with no requests the service spins down;
+  the next request takes about a minute while it wakes up. The app gives up after
+  20 seconds, so the first request may fail with "timed out". Tapping **Retry**
+  works once the server is awake. Before a demo, open `/health` in a browser to
+  wake it.
+- **No saved files.** The filesystem is reset on every deploy and restart. The
+  server doesn't store anything, so this is fine today.
+
+### Pointing the app at it
+
+```bash
+flutter run --dart-define=API_BASE_URL=https://<your-service>.onrender.com
+flutter build apk --dart-define=API_BASE_URL=https://<your-service>.onrender.com
+```
+
+Use the URL without a trailing slash.
+
 ## Tests
 
 ```bash
@@ -220,6 +269,7 @@ that touches `server/` (`.github/workflows/server-build.yml`).
 | `test/weather.test.js` | Open-Meteo requests and parsing, and city-name resolution. |
 | `test/outfit.test.js` | Every outfit rule and the closet-matching guarantees. |
 | `test/docs.test.js` | This README: the example response and the field table must match what the server returns. |
+| `test/deploy.test.js` | `render.yaml`: health check, start command, Node version and env vars match the server. |
 
 Tests never call the real Open-Meteo API: `test/setup.js` makes any unmocked `fetch`
 fail with a message telling you to mock it. Mock it like this:
@@ -237,6 +287,8 @@ src/index.js            Express app, /health and the JSON 404
 src/routes/forecast.js  GET /api/forecast: validation and error responses
 src/lib/weather.js      Open-Meteo geocoding and forecast calls
 src/lib/outfit.js       Outfit rules
+scripts/smoke-test.js   Checks a deployed server (npm run smoke)
+../render.yaml          Render deployment settings
 ```
 
 ## Notes for maintainers

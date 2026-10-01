@@ -5,11 +5,13 @@ on:
     branches: ['**']
     paths:
       - 'server/**'
+      - 'render.yaml'
       - '.github/workflows/server-build.yml'
   pull_request:
     branches: [main, master]
     paths:
       - 'server/**'
+      - 'render.yaml'
       - '.github/workflows/server-build.yml'
 
 jobs:

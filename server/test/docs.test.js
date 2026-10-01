@@ -4,7 +4,8 @@ const path = require('path');
 const request = require('supertest');
 const app = require('../src/index');
 
-const README = fs.readFileSync(path.join(__dirname, '..', 'README.md'), 'utf8');
+// Git on Windows checks files out with CRLF line endings; compare as LF everywhere.
+const README = fs.readFileSync(path.join(__dirname, '..', 'README.md'), 'utf8').replace(/\r\n/g, '\n');
 
 // Text of a README section, from its heading to the next heading of any level.
 function section(heading) {
