@@ -156,6 +156,59 @@ describe('GET /api/forecast — upstream failures', () => {
   });
 });
 
+describe('API-wide behavior', () => {
+  test.each([
+    ['unknown path', 'get', '/api/nope', 'Not found: GET /api/nope'],
+    ['wrong method', 'post', '/api/forecast', 'Not found: POST /api/forecast'],
+    ['root', 'get', '/', 'Not found: GET /'],
+  ])('%s returns a JSON 404', async (_name, method, url, message) => {
+    const res = await request(app)[method](url);
+    expect(res.status).toBe(404);
+    expect(res.headers['content-type']).toMatch(/application\/json/);
+    expect(res.body.error).toContain(message);
+  });
+
+  test.each([
+    ['success', { lat: 30, lon: -91 }, () => mockFetch(jsonResponse(forecastBody))],
+    ['error', {}, () => {}],
+  ])('%s responses are JSON with an open CORS header', async (_name, query, setup) => {
+    setup();
+    const res = await request(app).get('/api/forecast').query(query).set('Origin', 'http://localhost:5000');
+    expect(res.headers['content-type']).toMatch(/application\/json/);
+    expect(res.headers['access-control-allow-origin']).toBe('*');
+  });
+
+  test('missing optional upstream fields come back as null or 0, never absent', async () => {
+    mockFetch(jsonResponse({ current: { temperature_2m: 70 } }));
+    const res = await request(app).get('/api/forecast').query({ lat: 30, lon: -91 });
+    expect(res.status).toBe(200);
+    expect(res.body.weather).toEqual({
+      tempF: 70, condition: 'Condition unavailable', highF: null, lowF: null,
+      precipitationProbability: 0, windMph: 0, isDay: false, uvIndex: null, time: null,
+    });
+    expect(res.body.location).toEqual({ name: null, region: null, country: null, lat: 30, lon: -91 });
+  });
+
+  test('coordinates win when both city and lat/lon are sent', async () => {
+    const spy = mockFetch(jsonResponse(forecastBody));
+    const res = await request(app).get('/api/forecast').query({ city: 'Paris', lat: 30, lon: -91 });
+    expect(res.status).toBe(200);
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy.mock.calls[0][0]).toContain('api.open-meteo.com/v1/forecast');
+  });
+
+  test('UPSTREAM_TIMEOUT_MS controls the Open-Meteo timeout', async () => {
+    let fetchWeather;
+    process.env.UPSTREAM_TIMEOUT_MS = '1234';
+    jest.isolateModules(() => { ({ fetchWeather } = require('../src/lib/weather')); });
+    delete process.env.UPSTREAM_TIMEOUT_MS;
+    const timeout = jest.spyOn(AbortSignal, 'timeout');
+    mockFetch(jsonResponse(forecastBody));
+    await fetchWeather({ lat: 1, lon: 2 });
+    expect(timeout).toHaveBeenCalledWith(1234);
+  });
+});
+
 describe('GET /health', () => {
   test('returns ok', async () => {
     const res = await request(app).get('/health');

@@ -2,29 +2,74 @@
 
 Node.js/Express server for the Weather + Outfit Suggester app. It fetches
 live weather from the free [Open-Meteo](https://open-meteo.com/) API (no API
-key required) and adds rule-based outfit recommendations on top.
+key needed) and adds rule-based outfit recommendations on top.
 
 ## Run locally
+
+Requires Node.js 18 or newer.
 
 ```bash
 cd server
 npm install
-npm start        # listens on http://localhost:3000
+npm start        # http://localhost:3000
 ```
 
-## API
+`npm run dev` does the same but restarts when you save a file.
 
-### `GET /api/forecast`
+| Environment variable | Default | Purpose |
+| -------------------- | ------- | ------- |
+| `PORT` | `3000` | Port the server listens on. |
+| `UPSTREAM_TIMEOUT_MS` | `8000` | How long to wait for Open-Meteo before returning a 504. |
 
-Query params (provide one of the two):
-- `city` — e.g. `?city=Baton Rouge`
-- `lat` & `lon` — e.g. `?lat=30.45&lon=-91.18`
+## Endpoints
 
-Response:
+| Method | Path | Purpose |
+| ------ | ---- | ------- |
+| GET | `/api/forecast` | Current weather and an outfit for a city or coordinates. |
+| GET | `/health` | Liveness check for CI and hosting. |
+
+All responses are JSON, including errors. CORS is open to any origin, so the
+Flutter web build can call the server directly. Any other path or method
+returns a 404 with an `error` message.
+
+## `GET /api/forecast`
+
+### Query parameters
+
+Send **either** `city` **or** both `lat` and `lon`. If both are sent, the coordinates win.
+
+| Parameter | Type | Rules |
+| --------- | ---- | ----- |
+| `city` | string | 1–100 characters after trimming, sent once. Can include a state or country: `Paris, TX`. See [City names](#city-names). |
+| `lat` | number | −90 to 90. Requires `lon`. |
+| `lon` | number | −180 to 180. Requires `lat`. |
+
+Remember to URL-encode the city (`Baton%20Rouge`, `Paris%2C%20TX`).
+
+### Examples
+
+```bash
+curl "http://localhost:3000/api/forecast?city=Baton%20Rouge"
+curl "http://localhost:3000/api/forecast?city=Springfield%2C%20IL"
+curl "http://localhost:3000/api/forecast?lat=30.45&lon=-91.18"
+```
+
+```js
+const res = await fetch(`${BASE_URL}/api/forecast?city=${encodeURIComponent('Paris, TX')}`);
+const body = await res.json();
+if (!res.ok) showError(body.error); // every error has an `error` string
+```
+
+### Successful response (200)
+
 ```json
 {
   "location": { "name": "Baton Rouge", "region": "Louisiana", "country": "United States", "lat": 30.45075, "lon": -91.15455 },
-  "weather": { "tempF": 52, "condition": "Moderate rain", "highF": 58, "lowF": 47, "precipitationProbability": 80, "windMph": 12, "isDay": true, "uvIndex": 1 },
+  "weather": {
+    "tempF": 52, "condition": "Moderate rain", "highF": 58, "lowF": 47,
+    "precipitationProbability": 80, "windMph": 12, "isDay": true, "uvIndex": 1,
+    "time": "2026-10-01T09:45"
+  },
   "outfit": {
     "summary": "52°F and rainy → rain jacket, long-sleeve shirt, long pants, umbrella",
     "items": [
@@ -37,48 +82,79 @@ Response:
 }
 ```
 
-The forecast card displays temperature, condition, today's high/low, and wind.
-For A2, units are fixed at Fahrenheit and mph; a unit toggle is deferred.
-`condition` describes the current Open-Meteo WMO weather code (or
-`Condition unavailable` for an unknown code). `highF` and `lowF` are for the
-location's current calendar day and may be null when upstream data is missing.
-The app also supports older responses that omit these three new fields,
-showing unavailable labels instead of inventing values.
+### Response fields
 
-#### Errors
+Fields marked "or null" are always present but may be `null`; every other field is always a value of the stated type.
 
-Every error response has the shape `{ "error": "<human-readable message>" }`.
+| Field | Type | Meaning |
+| ----- | ---- | ------- |
+| `location.name` | string or null | Place name for `city` requests; `null` for `lat`/`lon` requests (show "Current location"). |
+| `location.region` | string or null | State or region, e.g. `Texas`; `null` for `lat`/`lon` requests or when Open-Meteo has none. |
+| `location.country` | string or null | Country name; `null` for `lat`/`lon` requests. |
+| `location.lat` | number | Latitude used for the forecast. |
+| `location.lon` | number | Longitude used for the forecast. |
+| `weather.tempF` | number | Current temperature, °F. |
+| `weather.condition` | string | Plain-English sky condition from the WMO weather code, or `Condition unavailable`. |
+| `weather.highF` | number or null | Today's high at the location, °F. |
+| `weather.lowF` | number or null | Today's low at the location, °F. |
+| `weather.precipitationProbability` | number | Chance of precipitation, 0–100 (%). `0` if Open-Meteo has no value. |
+| `weather.windMph` | number | Wind speed at 10 m, mph. `0` if Open-Meteo has no value. |
+| `weather.isDay` | boolean | Whether it is currently daytime at the location. |
+| `weather.uvIndex` | number or null | Current UV index. |
+| `weather.time` | string or null | Time of the reading in the location's own timezone, `YYYY-MM-DDTHH:MM`. |
+| `outfit.summary` | string | One-line text suggestion, e.g. for a plain-text card. |
+| `outfit.items` | array | Outfit items; see [Outfit items](#outfit-items-and-the-closet-matching-contract). |
+| `outfit.items[].label` | string | Display name, e.g. `rain jacket`. |
+| `outfit.items[].category` | string | `outerwear`, `top`, `bottom` or `accessory`. |
+| `outfit.items[].warmth` | string | `none`, `light`, `medium` or `heavy`. |
+| `outfit.items[].waterproof` | boolean | Whether the item is meant for rain. |
 
-| Status | When | Example message |
+Units are fixed at °F and mph.
+
+### Errors
+
+Every error response looks like `{ "error": "<message you can show the user>" }`.
+A 422 also includes `candidates`.
+
+| Status | When | Example `error` |
 | ------ | ---- | --------------- |
 | 400 | Neither `city` nor `lat`/`lon` given | `Provide either "city" or "lat" and "lon" query params.` |
 | 400 | Only one of `lat`/`lon` given | `Provide both "lat" and "lon", or use "city" instead.` |
-| 400 | `lat` not a number in -90..90, or `lon` not in -180..180 | `"lat" must be a number between -90 and 90.` |
-| 400 | `city` empty, repeated, or over 100 characters | `"city" must be a non-empty string.` |
-| 404 | Open-Meteo can't find the city (may suggest close matches) | `No location found for "Londo". Did you mean London, England, United Kingdom?` |
-| 422 | The city name matches several similar-sized places; the body also has a `candidates` array of `{ name, region, country, lat, lon }` | `"Springfield" matches several places: ... Add a state or country, e.g. "Springfield, Missouri".` |
+| 400 | `lat` not a number in −90..90, or `lon` not in −180..180 | `"lat" must be a number between -90 and 90.` |
+| 400 | `city` empty, sent more than once, or over 100 characters | `"city" must be a non-empty string.` |
+| 404 | No place has that name (may suggest close matches) | `No location found for "Londo". Did you mean London, England, United Kingdom?` |
+| 404 | Unknown path or method | `Not found: POST /api/forecast. See server/README.md for the available endpoints.` |
+| 422 | The name matches several similar-sized places | `"Springfield" matches several places: ... Add a state or country, e.g. "Springfield, Missouri".` |
 | 502 | Open-Meteo is unreachable, returns an error, or returns bad data | `Weather service is unreachable. Please try again later.` |
-| 504 | Open-Meteo takes longer than the timeout (default 8 s) | `Weather service timed out. Please try again.` |
-| 500 | Unexpected server bug (logged to the console) | `Something went wrong on the server. Please try again.` |
+| 504 | Open-Meteo takes longer than `UPSTREAM_TIMEOUT_MS` | `Weather service timed out. Please try again.` |
+| 500 | Unexpected server bug (also logged to the console) | `Something went wrong on the server. Please try again.` |
 
-If both `lat`/`lon` and `city` are given, the coordinates are used.
+A 422 lists up to five places, largest first, so a client can offer them as choices.
+Each has the same shape as `location`:
 
-#### City names
+```json
+{
+  "error": "\"Springfield\" matches several places: Springfield, Missouri, United States; Springfield, Massachusetts, United States. Add a state or country, e.g. \"Springfield, Missouri\".",
+  "candidates": [
+    { "name": "Springfield", "region": "Missouri", "country": "United States", "lat": 37.21533, "lon": -93.29824 },
+    { "name": "Springfield", "region": "Massachusetts", "country": "United States", "lat": 42.10148, "lon": -72.58981 }
+  ]
+}
+```
+
+To fetch one of them, call again with `lat`/`lon`, or with `city` set to `"<name>, <region>"`.
+
+### City names
 
 `city` can be `Paris`, `Paris, TX`, `Paris, Texas` or `Paris, Texas, USA`. The part before
-the first comma is looked up; each part after it must match the place's state/region,
+the first comma is the place name; each part after it must match the place's state or region,
 country name, or country code (US state abbreviations work). Only exact name matches are
-accepted, ignoring case, accents and periods (`sao paulo`, `St Louis`). When several
-places share the name, the largest one is used if it has at least 5x the population of
-the next one (`Paris` → Paris, France); otherwise the request fails with 422 so the user
-can add a state or country. Successful city lookups include `location.region` and
-`location.country`; for `lat`/`lon` requests those are `null`.
-The upstream timeout can be changed with the `UPSTREAM_TIMEOUT_MS` environment variable.
+accepted, ignoring case, accents and periods (`sao paulo`, `St Louis`), so a typo returns a
+404 with suggestions instead of the wrong city. When several places share the name, the
+largest is used if it has at least 5× the population of the next one (`Paris` → Paris,
+France); otherwise the request fails with 422.
 
-The app shows "City not found" when the error starts with `No location found`,
-so keep that prefix if you change the message.
-
-#### Closet-matching contract
+### Outfit items and the closet-matching contract
 
 Each `outfit.items[]` entry carries `category`, `warmth`, and `waterproof` on
 top of its display `label`. The app's closet feature matches these against a
@@ -99,7 +175,7 @@ Guarantees every outfit meets (enforced by tests in `test/outfit.test.js`):
 - When rain is likely (`precipitationProbability` ≥ 50), at least one waterproof `accessory`.
 - Items are ordered outerwear, tops, bottom, accessories; labels don't repeat.
 
-#### Outfit rules
+### Outfit rules
 
 Base layers by temperature (°F):
 
@@ -125,12 +201,48 @@ Then, in order:
 
 All thresholds are constants at the top of `src/lib/outfit.js`.
 
-### `GET /health`
+## `GET /health`
 
-Returns `{ "status": "ok" }`. Used by CI/hosting health checks.
+Returns `{ "status": "ok" }` with status 200.
 
 ## Tests
 
 ```bash
 npm test
 ```
+
+This runs every test with coverage, which takes a few seconds. CI runs the same command on every push
+that touches `server/` (`.github/workflows/server-build.yml`).
+
+| File | What it covers |
+| ---- | -------------- |
+| `test/forecast.test.js` | The HTTP API end to end: parameters, response shape, every error status, CORS. |
+| `test/weather.test.js` | Open-Meteo requests and parsing, and city-name resolution. |
+| `test/outfit.test.js` | Every outfit rule and the closet-matching guarantees. |
+| `test/docs.test.js` | This README: the example response and the field table must match what the server returns. |
+
+Tests never call the real Open-Meteo API: `test/setup.js` makes any unmocked `fetch`
+fail with a message telling you to mock it. Mock it like this:
+
+```js
+jest.spyOn(global, 'fetch').mockResolvedValueOnce({ ok: true, status: 200, json: async () => body });
+```
+
+`npm test` also fails if any line or branch of `src/lib/outfit.js` is untested.
+
+## Project layout
+
+```
+src/index.js            Express app, /health and the JSON 404
+src/routes/forecast.js  GET /api/forecast: validation and error responses
+src/lib/weather.js      Open-Meteo geocoding and forecast calls
+src/lib/outfit.js       Outfit rules
+```
+
+## Notes for maintainers
+
+- **Changing the response:** update the example and the field table above in the same PR.
+  `test/docs.test.js` fails if they drift from what the server returns.
+- **Keep the 404 message prefix:** the Flutter app shows "City not found" when an `error`
+  starts with `No location found`, so keep that prefix if you reword the message.
+- **422 messages are shown as-is:** the app displays a 422 `error` directly, so keep it user-friendly.
