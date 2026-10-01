@@ -18,21 +18,31 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
+  <meta name="description" content="Weather forecasts and what to wear.">
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="project_4">
+  <meta name="apple-mobile-web-app-title" content="Weather + Outfit">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>project_4</title>
+  <title>Weather + Outfit</title>
   <link rel="manifest" href="manifest.json">
 </head>
-<body>
+<body style="margin:0;background:#00695C">
+  <div id="launch" role="status" aria-label="Loading Weather + Outfit"
+       style="position:fixed;inset:0;display:grid;place-content:center;text-align:center;color:white;font:20px system-ui">
+    <img src="icons/Icon-192.png" width="192" height="192" alt="">
+    <p>Weather + Outfit</p>
+  </div>
+  <script>
+    window.addEventListener('flutter-first-frame', () => {
+      document.getElementById('launch')?.remove();
+    });
+  </script>
   <!--
     You can customize the "flutter_bootstrap.js" script.
     This is useful to provide a custom configuration to the Flutter loader

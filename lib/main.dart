@@ -14,6 +14,11 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) => MaterialApp(
     title: 'Weather + Outfit',
     theme: ThemeData(colorSchemeSeed: Colors.teal),
+    darkTheme: ThemeData(
+      colorSchemeSeed: Colors.teal,
+      brightness: Brightness.dark,
+    ),
+    themeMode: ThemeMode.system,
     home: WeatherHome(
       weather: weatherService ?? WeatherService(),
       location: locationService ?? LocationService(),
@@ -36,6 +41,11 @@ class _WeatherHomeState extends State<WeatherHome> {
   Forecast? _forecast;
   bool _lastUseGps = false;
   String? _lastCity;
+  Future<void> _refresh() async {
+    if (_lastCity == null && !_lastUseGps) return;
+    await _fetch(useGps: _lastUseGps, retryCity: _lastCity);
+  }
+
   @override
   void dispose() {
     _city.dispose();
@@ -90,68 +100,95 @@ class _WeatherHomeState extends State<WeatherHome> {
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 560),
-          child: ListView(
-            padding: const EdgeInsets.all(24),
-            children: [
-              Text(
-                'Weather where you are',
-                style: Theme.of(context).textTheme.headlineSmall,
-              ),
-              const SizedBox(height: 8),
-              const Text('Search for a city or use your device location.'),
-              const SizedBox(height: 24),
-              TextField(
-                controller: _city,
-                enabled: !_loading,
-                textInputAction: TextInputAction.search,
-                onSubmitted: (_) => _fetch(),
-                decoration: const InputDecoration(
-                  labelText: 'City',
-                  hintText: 'e.g. Baton Rouge',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.search),
+          child: RefreshIndicator(
+            onRefresh: _refresh,
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(24),
+              children: [
+                Text(
+                  'Weather where you are',
+                  style: Theme.of(context).textTheme.headlineSmall,
                 ),
-              ),
-              const SizedBox(height: 12),
-              FilledButton(
-                onPressed: _loading ? null : () => _fetch(),
-                child: const Text('Get Weather'),
-              ),
-              TextButton.icon(
-                onPressed: _loading ? null : () => _fetch(useGps: true),
-                icon: const Icon(Icons.my_location),
-                label: const Text('Use my location'),
-              ),
-              const SizedBox(height: 16),
-              if (_loading)
-                const Center(
-                  child: CircularProgressIndicator(
-                    semanticsLabel: 'Getting weather',
+                const SizedBox(height: 8),
+                const Text('Search for a city or use your device location.'),
+                const SizedBox(height: 24),
+                TextField(
+                  controller: _city,
+                  enabled: !_loading,
+                  textInputAction: TextInputAction.search,
+                  onSubmitted: (_) => _fetch(),
+                  decoration: const InputDecoration(
+                    labelText: 'City',
+                    hintText: 'e.g. Baton Rouge',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.search),
                   ),
                 ),
-              if (_error != null)
-                Semantics(
-                  liveRegion: true,
-                  child: Text(
-                    _error!,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
+                const SizedBox(height: 12),
+                FilledButton(
+                  onPressed: _loading ? null : () => _fetch(),
+                  child: const Text('Get Weather'),
+                ),
+                TextButton.icon(
+                  onPressed: _loading ? null : () => _fetch(useGps: true),
+                  icon: const Icon(Icons.my_location),
+                  label: const Text('Use my location'),
+                ),
+                const SizedBox(height: 16),
+                if (!_loading && _error == null && _forecast == null)
+                  const Card(
+                    child: Padding(
+                      padding: EdgeInsets.all(20),
+                      child: Column(
+                        children: [
+                          Icon(Icons.wb_sunny_outlined, size: 40),
+                          SizedBox(height: 12),
+                          Text('No forecast yet'),
+                          SizedBox(height: 8),
+                          Text(
+                            'Search for a city or use your location to see weather and what to wear.',
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              if (_error != null && (_lastCity != null || _lastUseGps))
-                TextButton.icon(
-                  onPressed: () =>
-                      _fetch(useGps: _lastUseGps, retryCity: _lastCity),
-                  icon: const Icon(Icons.refresh),
-                  label: const Text('Retry'),
-                ),
-              if (!_loading && _error == null && _forecast != null) ...[
-                ForecastCard(forecast: _forecast!),
-                const SizedBox(height: 12),
-                OutfitSummaryCard(summary: _forecast!.outfitSummary),
+                if (_loading)
+                  const Center(
+                    child: CircularProgressIndicator(
+                      semanticsLabel: 'Getting weather',
+                    ),
+                  ),
+                if (_error != null)
+                  Semantics(
+                    liveRegion: true,
+                    child: Text(
+                      _error!,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                    ),
+                  ),
+                if (_error != null && (_lastCity != null || _lastUseGps))
+                  TextButton.icon(
+                    onPressed: () =>
+                        _fetch(useGps: _lastUseGps, retryCity: _lastCity),
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Retry'),
+                  ),
+                if (!_loading && _error == null && _forecast != null) ...[
+                  ForecastCard(forecast: _forecast!),
+                  const SizedBox(height: 12),
+                  OutfitSummaryCard(summary: _forecast!.outfitSummary),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Pull down to refresh.',
+                    textAlign: TextAlign.center,
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),

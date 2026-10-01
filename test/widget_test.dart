@@ -137,11 +137,73 @@ void main() {
     );
     expect(location.calls, 0);
     expect(requests, isEmpty);
+    expect(find.text('No forecast yet'), findsOneWidget);
     expect(find.text('e.g. Baton Rouge'), findsOneWidget);
     await tester.tap(find.text('Get Weather'));
     await tester.pumpAndSettle();
     expect(find.text('Enter a city name to get weather.'), findsOneWidget);
     expect(requests, isEmpty);
+  });
+
+  testWidgets('A4 follows system brightness changes', (tester) async {
+    tester.platformDispatcher.platformBrightnessTestValue = Brightness.dark;
+    addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
+    await tester.pumpWidget(
+      MyApp(weatherService: weather, locationService: location),
+    );
+    expect(
+      Theme.of(tester.element(find.byType(Scaffold))).brightness,
+      Brightness.dark,
+    );
+    tester.platformDispatcher.platformBrightnessTestValue = Brightness.light;
+    await tester.pumpAndSettle();
+    expect(
+      Theme.of(tester.element(find.byType(Scaffold))).brightness,
+      Brightness.light,
+    );
+  });
+
+  testWidgets('A4 pull refresh repeats the displayed city, not edited input', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MyApp(weatherService: weather, locationService: location),
+    );
+    await tester.drag(find.byType(ListView), const Offset(0, 400));
+    await tester.pumpAndSettle();
+    expect(requests, isEmpty);
+    await tester.enterText(find.byType(TextField), 'Chicago');
+    await tester.tap(find.text('Get Weather'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'Boston');
+    await tester.drag(find.byType(ListView), const Offset(0, 400));
+    await tester.pumpAndSettle();
+    expect(requests.map((uri) => uri.queryParameters['city']), [
+      'Chicago',
+      'Chicago',
+    ]);
+    expect(find.text('No forecast yet'), findsNothing);
+  });
+
+  testWidgets('A4 pull refresh reacquires GPS and can recover from failure', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MyApp(weatherService: weather, locationService: location),
+    );
+    await tester.tap(find.text('Use my location'));
+    await tester.pumpAndSettle();
+    location.denied = true;
+    await tester.drag(find.byType(ListView), const Offset(0, 400));
+    await tester.pumpAndSettle();
+    expect(location.calls, 2);
+    expect(find.textContaining('permission was denied'), findsOneWidget);
+    location.denied = false;
+    await tester.drag(find.byType(ListView), const Offset(0, 400));
+    await tester.pumpAndSettle();
+    expect(location.calls, 3);
+    expect(requests, hasLength(2));
+    expect(requests.last.queryParameters, {'lat': '30.45', 'lon': '-91.18'});
   });
 
   testWidgets('denied GPS still allows city forecast', (tester) async {
