@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 
+import 'closet/closet_repository.dart';
+import 'closet/closet_screen.dart';
+import 'closet/closet_store.dart';
+import 'closet/outfit_screen.dart';
 import 'weather_service.dart';
 import 'forecast_card.dart';
 import 'outfit_summary_card.dart';
@@ -7,9 +11,15 @@ import 'outfit_summary_card.dart';
 void main() => runApp(const MyApp());
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key, this.weatherService, this.locationService});
+  const MyApp({
+    super.key,
+    this.weatherService,
+    this.locationService,
+    this.closetStore,
+  });
   final WeatherService? weatherService;
   final LocationService? locationService;
+  final ClosetStore? closetStore;
   @override
   Widget build(BuildContext context) => MaterialApp(
     title: 'Weather + Outfit',
@@ -22,14 +32,21 @@ class MyApp extends StatelessWidget {
     home: WeatherHome(
       weather: weatherService ?? WeatherService(),
       location: locationService ?? LocationService(),
+      closet: closetStore ?? ClosetRepository(),
     ),
   );
 }
 
 class WeatherHome extends StatefulWidget {
-  const WeatherHome({super.key, required this.weather, required this.location});
+  const WeatherHome({
+    super.key,
+    required this.weather,
+    required this.location,
+    required this.closet,
+  });
   final WeatherService weather;
   final LocationService location;
+  final ClosetStore closet;
   @override
   State<WeatherHome> createState() => _WeatherHomeState();
 }
@@ -95,7 +112,22 @@ class _WeatherHomeState extends State<WeatherHome> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Weather + Outfit')),
+    appBar: AppBar(
+      title: const Text('Weather + Outfit'),
+      actions: [
+        IconButton(
+          key: const Key('open-closet-button'),
+          tooltip: 'My Closet',
+          icon: const Icon(Icons.checkroom_outlined),
+          onPressed: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ClosetScreen(store: widget.closet),
+            ),
+          ),
+        ),
+      ],
+    ),
     body: SafeArea(
       child: Center(
         child: ConstrainedBox(
@@ -181,6 +213,21 @@ class _WeatherHomeState extends State<WeatherHome> {
                   ForecastCard(forecast: _forecast!),
                   const SizedBox(height: 12),
                   OutfitSummaryCard(summary: _forecast!.outfitSummary),
+                  const SizedBox(height: 12),
+                  FilledButton.tonalIcon(
+                    key: const Key('open-outfit-button'),
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => OutfitScreen(
+                          forecast: _forecast!,
+                          store: widget.closet,
+                        ),
+                      ),
+                    ),
+                    icon: const Icon(Icons.checkroom_outlined),
+                    label: const Text('What should I wear?'),
+                  ),
                   const SizedBox(height: 12),
                   const Text(
                     'Pull down to refresh.',
