@@ -70,4 +70,4 @@ See [`server/README.md`](server/README.md) for the API contract.
 
 ## Demo video
 
-TODO: link the demo video here once recorded (Track D, story D5).
+TODO: https://drive.google.com/file/d/1mCEZ8Rvv9P6lxenlYwmhjiNY0bbA0aV4/view?usp=sharing
