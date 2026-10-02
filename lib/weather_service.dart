@@ -101,7 +101,7 @@ class WeatherService {
           baseUrl ??
           const String.fromEnvironment(
             'API_BASE_URL',
-            defaultValue: 'http://localhost:3000',
+            defaultValue: 'https://weather-outfit-server.onrender.com',
           );
   final http.Client? client;
   final String _baseUrl;
