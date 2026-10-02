@@ -1,0 +1,25 @@
+# Render Blueprint for the server (story C5).
+# In Render: New > Blueprint > pick this repo. Render reads this file and
+# creates the service; pushes to master redeploy it automatically.
+# Docs: https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: weather-outfit-server
+    runtime: node
+    plan: free
+    rootDir: server
+    branch: master
+    buildCommand: npm ci --omit=dev
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeploy: true
+    # Only redeploy when the server changes, not on app-only commits.
+    buildFilter:
+      paths:
+        - server/**
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: UPSTREAM_TIMEOUT_MS
+        value: "8000"
+      # Render sets PORT itself; the server already reads it.

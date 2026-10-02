@@ -8,7 +8,8 @@
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
     "test": "jest --coverage",
-    "lint": "eslint src test"
+    "lint": "eslint src test",
+    "smoke": "node scripts/smoke-test.js"
   },
   "dependencies": {
     "express": "^4.19.2",
