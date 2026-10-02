@@ -24,7 +24,7 @@ class _AddClosetItemScreenState extends State<AddClosetItemScreen> {
   late final ClosetPhotoPicker _picker = widget.photoPicker ?? ClosetPhotoPicker();
   final _name = TextEditingController();
   String? _photoPath;
-  ClothingCategory _category = ClothingCategory.top;
+  ClothingCategory? _category;
   ClothingWarmth _warmth = ClothingWarmth.none;
   bool _waterproof = false;
   bool _saving = false;
@@ -64,12 +64,13 @@ class _AddClosetItemScreenState extends State<AddClosetItemScreen> {
   }
 
   Future<void> _save() async {
-    if (_photoPath == null || _saving) return;
+    final category = _category;
+    if (_photoPath == null || category == null || _saving) return;
     setState(() => _saving = true);
     try {
       final item = await widget.store.add(
         sourcePhotoPath: _photoPath!,
-        category: _category,
+        category: category,
         warmth: _warmth,
         waterproof: _waterproof,
         name: _name.text.trim().isEmpty ? null : _name.text.trim(),
@@ -134,13 +135,13 @@ class _AddClosetItemScreenState extends State<AddClosetItemScreen> {
             initialValue: _category,
             decoration: const InputDecoration(
               labelText: 'Category',
+              hintText: 'Required',
               border: OutlineInputBorder(),
             ),
             items: ClothingCategory.values
                 .map((c) => DropdownMenuItem(value: c, child: Text(c.label)))
                 .toList(),
-            onChanged: (value) =>
-                setState(() => _category = value ?? _category),
+            onChanged: (value) => setState(() => _category = value),
           ),
           const SizedBox(height: 16),
           DropdownButtonFormField<ClothingWarmth>(
@@ -162,7 +163,9 @@ class _AddClosetItemScreenState extends State<AddClosetItemScreen> {
           ),
           const SizedBox(height: 16),
           FilledButton(
-            onPressed: _photoPath == null || _saving ? null : _save,
+            onPressed: _photoPath == null || _category == null || _saving
+                ? null
+                : _save,
             child: _saving
                 ? const SizedBox(
                     width: 20,
