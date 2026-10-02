@@ -12,6 +12,45 @@ class WeatherFailure implements Exception {
 
 typedef Coordinates = ({double latitude, double longitude});
 
+/// One recommended outfit piece from the server's outfit rules engine.
+/// `category`/`warmth`/`waterproof` are the closet-matching contract
+/// documented in server/README.md: category is one of
+/// 'outerwear' | 'top' | 'bottom' | 'accessory', warmth is one of
+/// 'none' | 'light' | 'medium' | 'heavy'.
+class OutfitItem {
+  const OutfitItem({
+    required this.label,
+    required this.category,
+    required this.warmth,
+    required this.waterproof,
+  });
+  final String label;
+  final String category;
+  final String warmth;
+  final bool waterproof;
+
+  factory OutfitItem.fromJson(Map<String, dynamic> json) => OutfitItem(
+    label: json['label'] as String,
+    category: json['category'] as String,
+    warmth: json['warmth'] as String,
+    waterproof: json['waterproof'] as bool,
+  );
+}
+
+List<OutfitItem> _parseOutfitItems(Map<String, dynamic> json) {
+  final items = (json['outfit'] as Map<String, dynamic>?)?['items'];
+  if (items is! List) return const [];
+  final parsed = <OutfitItem>[];
+  for (final item in items) {
+    try {
+      parsed.add(OutfitItem.fromJson(item as Map<String, dynamic>));
+    } catch (_) {
+      // Skip malformed entries rather than failing the whole forecast.
+    }
+  }
+  return parsed;
+}
+
 class Forecast {
   const Forecast({
     required this.name,
@@ -21,6 +60,7 @@ class Forecast {
     this.highF,
     this.lowF,
     this.outfitSummary,
+    this.outfitItems = const [],
   });
   final String name;
   final double tempF;
@@ -29,6 +69,7 @@ class Forecast {
   final double? highF;
   final double? lowF;
   final String? outfitSummary;
+  final List<OutfitItem> outfitItems;
 
   factory Forecast.fromJson(Map<String, dynamic> json) {
     final weather = json['weather'] as Map<String, dynamic>;
@@ -42,6 +83,7 @@ class Forecast {
       lowF: (weather['lowF'] as num?)?.toDouble(),
       outfitSummary:
           (json['outfit'] as Map<String, dynamic>?)?['summary'] as String?,
+      outfitItems: _parseOutfitItems(json),
     );
     if (!forecast.tempF.isFinite ||
         !forecast.windMph.isFinite ||
