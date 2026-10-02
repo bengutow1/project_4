@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:project_4/closet/add_closet_item_screen.dart';
+import 'package:project_4/closet/closet_item.dart';
 import 'package:project_4/closet/closet_photo_picker.dart';
 
 import 'in_memory_closet_store.dart';
@@ -33,6 +34,13 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
   }
 
+  Future<void> selectCategory(WidgetTester tester, String label) async {
+    await tester.tap(find.widgetWithText(DropdownButtonFormField<ClothingCategory>, 'Category'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(label).last);
+    await tester.pumpAndSettle();
+  }
+
   testWidgets('B1 camera flow shows a preview before saving', (tester) async {
     await useTallSurface(tester);
     final picker = _FakePhotoPicker(fakePhotoPath);
@@ -53,11 +61,13 @@ void main() {
     expect(find.byType(Image), findsOneWidget);
     expect(find.text('Tap to add a photo'), findsNothing);
 
+    await selectCategory(tester, 'Outerwear');
     await tester.tap(find.text('Save to closet'));
     await tester.pumpAndSettle();
 
     expect(store.items, hasLength(1));
     expect(store.items.single.imagePath, fakePhotoPath);
+    expect(store.items.single.category, ClothingCategory.outerwear);
   });
 
   testWidgets('B1 gallery flow lets the user pick instead of using the camera', (tester) async {
@@ -90,5 +100,53 @@ void main() {
 
     final saveButton = tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Save to closet'));
     expect(saveButton.onPressed, isNull);
+  });
+
+  testWidgets('B2 blocks saving a photo without a category', (tester) async {
+    await useTallSurface(tester);
+    final picker = _FakePhotoPicker(fakePhotoPath);
+    final store = InMemoryClosetStore();
+
+    await tester.pumpWidget(
+      MaterialApp(home: AddClosetItemScreen(store: store, photoPicker: picker)),
+    );
+
+    await tester.tap(find.byKey(const Key('closet-photo-picker')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Take a photo'));
+    await tester.pumpAndSettle();
+
+    final saveButton = tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Save to closet'));
+    expect(saveButton.onPressed, isNull);
+    expect(store.items, isEmpty);
+  });
+
+  testWidgets('B2 saves the chosen category, warmth, waterproof and name', (tester) async {
+    await useTallSurface(tester);
+    final picker = _FakePhotoPicker(fakePhotoPath);
+    final store = InMemoryClosetStore();
+
+    await tester.pumpWidget(
+      MaterialApp(home: AddClosetItemScreen(store: store, photoPicker: picker)),
+    );
+
+    await tester.tap(find.byKey(const Key('closet-photo-picker')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Take a photo'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.widgetWithText(TextField, 'Name or color (optional)'), 'Navy rain jacket');
+    await selectCategory(tester, 'Outerwear');
+    await tester.tap(find.widgetWithText(SwitchListTile, 'Waterproof'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Save to closet'));
+    await tester.pumpAndSettle();
+
+    expect(store.items, hasLength(1));
+    final saved = store.items.single;
+    expect(saved.category, ClothingCategory.outerwear);
+    expect(saved.waterproof, isTrue);
+    expect(saved.name, 'Navy rain jacket');
   });
 }
