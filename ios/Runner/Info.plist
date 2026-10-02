@@ -4,6 +4,10 @@
 <dict>
     <key>NSLocationWhenInUseUsageDescription</key>
     <string>Use your location to fetch local weather when you tap Use my location.</string>
+    <key>NSCameraUsageDescription</key>
+    <string>Take a photo of a clothing item to add it to your closet.</string>
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>Choose a photo of a clothing item from your gallery to add it to your closet.</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
